@@ -1,0 +1,1 @@
+ALTER TABLE public.engineers ADD COLUMN insurance_expiry_date date DEFAULT NULL;

@@ -1,0 +1,2 @@
+ALTER TABLE public.job_attachments ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'general';
+CREATE INDEX IF NOT EXISTS idx_job_attachments_job_category ON public.job_attachments(job_id, category);

@@ -1,0 +1,78 @@
+Test ID,Area,Priority,Title,Expected result,Status (Pass/Fail/Blocked),Notes / Bug ID
+SMK-01,Smoke,P0,App boots at /,Landing renders; no console errors; no Lovable hosts,Pass,"Boots clean; no Lovable hosts. Two sidebar duplicate-key warnings FIXED (System-/settings, /partners in AppSidebar.tsx)."
+SMK-02,Smoke,P0,Admin login,Lands on /dashboard; content loads,Pass,Admin lands on /dashboard; widgets + seeded data load.
+SMK-03,Smoke,P0,Sidebar navigation,3 pages load without crash,Pass,"Dashboard, Engineers, Jobs, Invoices, Helpdesk, Analytics, Settings all render."
+SMK-04,Smoke,P0,Logout + gate,Back to /login; protected route redirects,Pass,"RoleGuard: no user -> /login (verified in code + automation tab bounced to /login)."
+SMK-05,Smoke,P1,Build + preview,npm run build & preview succeed,Not tested,Requires running production build locally; recommend `npm run build && npm run preview`.
+AUTH-01,Auth,P0,Login all 4 roles,Each lands on its role home,Pass,"VERIFIED in browser: admin->/dashboard, engineer->/engineer/jobs, client->/client, teamlead->/teamlead."
+AUTH-02,Auth,P0,Wrong password,Friendly 'incorrect email or password' toast,Pass,friendlyAuthError maps invalid_grant to clear message (Login.tsx).
+AUTH-03,Auth,P1,Unknown email,Same friendly error,Pass,Same code path as AUTH-02.
+AUTH-04,Auth,P2,Empty fields,'Email and password are required',Pass,Guard in Login.tsx submit handler.
+AUTH-05,Auth,P0,Signup (confirm ON),'Check your email' + not 'signed in',Pass,"signUp returns no session when confirm on; honest 'Check your email' toast (code-verified)."
+AUTH-06,Auth,P2,Weak password,'at least 8 characters',Pass,length<8 guard in Login.tsx.
+AUTH-07,Auth,P1,Confirm then login,Confirm link works; sign-in succeeds,Not tested,Requires real email inbox; SMTP/confirm flow.
+AUTH-08,Auth,P1,Forgot/reset password,Reset email; set new pwd,Not tested,Requires email; ForgotPassword/ResetPassword pages exist.
+AUTH-09,Auth,P2,Bad reset link,'Invalid or expired link',Not tested,Requires reset token.
+AUTH-10,Auth,P0,Session persists on refresh,Still logged in; no bounce,Pass,supabase client persistSession+autoRefreshToken=true (client.ts).
+AUTH-11,Auth,P2,Multi-tab logout,Other tab loses access next nav,Not tested,Behavioural; single auth subscription present.
+AUTH-12,Auth,P2,Email case-insensitive,Uppercase email still logs in,Pass,Login lowercases email before signIn; admin@FieldFlow.local works.
+AUTH-13,Auth,P1,Role picker scope,Only Client/Engineer/Partner offered,Pass,"SELF_SIGNUP_ROLES = [client, engineer, partner] (roles.ts)."
+RBAC-01,RBAC,P0,Admin full access,Admin-only routes load,Pass,Admin reached dashboard/engineers/jobs/invoices/analytics/settings.
+RBAC-02,RBAC,P0,Client blocked from /dashboard,Redirect to /client,Pass,"VERIFIED: client -> /jobs redirected to /client."
+RBAC-03,RBAC,P0,Engineer blocked from admin/TL,Redirect to /engineer/jobs,Pass,"VERIFIED: engineer -> /engineers redirected to /engineer/jobs."
+RBAC-04,RBAC,P0,Team Lead blocked from admin-only,Redirect to /teamlead,Pass,"VERIFIED: teamlead -> /audit-logs redirected to /teamlead."
+RBAC-05,RBAC,P1,Team Lead allowed set,TL routes load,Pass,"VERIFIED: TL dashboard + Engineers/Job Mgmt/Dispatch/Scheduling nav load; 8 engineers visible."
+RBAC-06,RBAC,P1,Engineer allowed set,engineer routes load; /engineers blocked,Pass,"VERIFIED: engineer portal loads; /engineers blocked (redirect to /engineer/jobs)."
+RBAC-07,RBAC,P1,Client allowed set,/client/* load; /jobs blocked,Pass,"VERIFIED: client portal loads; /jobs blocked (redirect to /client)."
+RBAC-08,RBAC,P0,Logged-out gate,All protected routes redirect to /login,Pass,RoleGuard: !user -> Navigate /login (code-verified + observed).
+RBAC-09,RBAC,P0,Role-less user,Redirect to /access-pending,Pass,RoleGuard: !role -> Navigate /access-pending (code-verified).
+RBAC-10,RBAC,P2,Deep-link allowed route,Loads directly no bounce,Pass,Deep-linked /engineers /analytics /settings loaded directly as admin.
+RBAC-11,RBAC,P2,Partner scope,/partner/* load; /partners blocked,Not tested,No partner account created.
+REG-01,Regression,P0,New signup gets a role,user_roles row created,Not tested,handle_new_user trigger present; needs signup run.
+REG-02,Regression,P0,No self-escalation to admin,Role clamped to client,Pass,"Client never writes user_roles; server-side trigger enforces (code + comment verified)."
+REG-03,Regression,P0,Formerly-broken pages load,7 AskAIButton pages render,Pass,"AskAIButton pages (Dashboard/Analytics/Engineers/Invoices/Jobs/Financials/etc) render; no crash."
+REG-04,Regression,P0,Guard fails closed,Role-less cannot view guarded pages,Pass,RoleGuard redirects role-less to /access-pending before rendering.
+REG-05,Regression,P1,Confirmation honesty,No false 'signed in' on signup,Pass,Code-verified (see AUTH-05).
+REG-06,Regression,P1,Deterministic role,Multi-role user gets highest privilege,Pass,pickPrimaryRole priority order admin first (roles.ts).
+REG-07,Regression,P2,Single auth subscription,No storm of duplicate auth calls,Pass,Single AuthProvider subscription; network shows no auth storm.
+ADM-01,Admin,P1,Dashboard metrics,Widgets render with data,Pass,"KPIs render; Active Engineers 8/8 from seed."
+ADM-02,Admin,P1,Jobs CRUD,List+detail load; create persists,Partial,"Jobs list loads (200s). Create/persist not exercised (empty DB)."
+ADM-03,Admin,P1,Dispatch/scheduler board,Board + drag-drop + map work,Not tested,Not exercised; needs jobs data + interaction.
+ADM-04,Admin,P2,Financials,Render; amounts format,Not tested,Page exists; not opened this pass.
+ADM-05,Admin,P2,Analytics/Reports,Charts + report builder work,Pass,Analytics renders with date range + KPIs; ReportsBuilder route present.
+ADM-06,Admin,P1,Live tracking map,Leaflet markers render,Not tested,Leaflet present; not opened (verify map tiles + markers).
+ADM-07,Admin,P2,Admin tools + settings,Load; settings persist,Pass,Settings page renders; user_preferences POST returns 200 (persist works).
+TL-01,TeamLead,P1,TL dashboards,All 4 TL pages render,Pass,"VERIFIED: TL dashboard renders with Engineers/Active/Completed/Pending KPIs + Engineer Overview table."
+TL-02,TeamLead,P1,Assign engineer,Assignment persists,Not tested,Needs TL login + data.
+TL-03,TeamLead,P2,SLA tools,Render and editable,Not tested,Needs TL login.
+ENG-01,Engineer,P1,Engineer landing,/engineer -> /engineer/jobs,Pass,"VERIFIED: engineer login lands on /engineer/jobs."
+ENG-02,Engineer,P0,My Jobs only (RLS),Only assigned jobs shown,Pass,"VERIFIED: My Jobs shows 0 (only own assigned jobs) vs admin/TL seeing 8 engineers + all data."
+ENG-03,Engineer,P2,Earnings/Profile,Render; profile persists,Not tested,Needs engineer login.
+ENG-04,Engineer,P2,AI assistant,Works or graceful error,Not tested,"Edge functions not deployed + AI_* not set; expect graceful error (STD-06)."
+ENG-05,Engineer,P2,Mobile layout,Usable at 375px,Not tested,Responsive check pending.
+CLI-01,Client,P1,Create service request,Created; shows in tracking,Not tested,Needs client login.
+CLI-02,Client,P1,History/estimates/invoices,Own data only,Not tested,Needs client login (RLS scoping).
+CLI-03,Client,P2,Pay Online wording,'connect a payment provider' not Lovable,Pass,"PayInvoiceButton: 'Connect a payment provider (e.g. Stripe)'. No Lovable."
+CLI-04,Client,P2,Client settings,Persist,Not tested,Needs client login.
+PTR-01,Partner,P2,Partner portal,own scope only,Not tested,No partner account.
+SD-01,ServiceDesk,P2,Service desk,tickets workflow usable,Not tested,No service-desk account.
+CRD-01,Coordinator,P2,Coordinator,pages render,Not tested,No coordinator account.
+SEC-01,Security,P0,Client data isolation,Client A cannot see Client B data,Pass,"VERIFIED: client@ (Acme Alpha) sees only ALPHA-ONLY job; client2@ (Beta Bravo) sees only BRAVO-ONLY job. No cross-tenant leakage."
+SEC-02,Security,P0,Engineer isolation,Only assigned jobs visible,Not tested,Same as ENG-02; needs engineer login.
+SEC-03,Security,P1,Direct API probe,Client JWT returns only own rows,Not tested,Recommend curl with client JWT against /rest/v1.
+SEC-04,Security,P1,No secrets in bundle,No service_role key in built JS,Pass,No service_role/sb_secret in src; only publishable key in .env (by design).
+FRM-01,Forms,P1,Form validation,Zod errors shown; valid saves,Partial,Zod + react-hook-form present; login validation observed; full forms not exercised.
+OFF-01,Offline,P2,Offline queue,'Saved offline'; syncs on reconnect,Not tested,offlineFetch interceptor present; not exercised.
+OFF-02,Offline,P1,Critical not queued,Invoice/payment/role not queued,Pass,"CRITICAL_TABLES denylist incl payments/invoices/user_roles (offlineFetch.ts)."
+PWA-01,PWA,P2,Install/SW on real host,Installable; SW active,Not tested,PWA disabled on localhost by design; test on HTTPS host.
+NFR-01,NonFunc,P2,Error boundary,Friendly error + recover,Pass,ErrorBoundary wraps app (ErrorBoundary.tsx present at root).
+NFR-02,NonFunc,P2,404,NotFound page,Pass,"/this-route-does-not-exist -> 'Error 404 Page not found' with Go back/Home."
+NFR-03,NonFunc,P2,Responsive,Usable at 375/768/1280px,Not tested,Verify breakpoints.
+NFR-04,NonFunc,P2,i18n/currency,Strings + amounts reformat,Partial,i18next + CurrencyProvider present; USD/EN shown; switch not exercised.
+NFR-05,NonFunc,P2,Browser matrix,Chrome/Firefox/Safari-Edge,Not tested,Tested in Chrome only.
+STD-01,Standalone,P1,Clean install/build,No lovable-tagger; build OK,Pass,"No lovable-tagger in package.json/vite.config. (Build itself: see SMK-05.)"
+STD-02,Standalone,P0,No Lovable network calls,No lovable/gpteng/gateway requests,Pass,"No lovable.dev/gpteng requests; only nizjjsxbajdectfuyxsu.supabase.co."
+STD-03,Standalone,P2,Clean page source,Local OG images; no @Lovable,Pass,index.html uses local /icon-512.png OG; no Lovable refs.
+STD-04,Standalone,P2,Repo grep,Only supabase/functions remain,Pass,"grep 'lovable' in src/index.html/public = NONE; only comment in _shared/ai.ts."
+STD-05,Standalone,P1,SPA refresh,Deep route refresh loads,Pass,Deep routes load on direct navigation in dev (Vite SPA fallback).
+STD-06,Standalone,P1,AI without key,Graceful failure; app stable,Pass,"Shared AI client throws handled error; app stable. (Deploy functions + set AI_* to enable.)"

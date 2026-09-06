@@ -1,0 +1,17 @@
+name: Route integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify routes, sidebar entries, and lazy imports
+        run: node scripts/check-routes.mjs

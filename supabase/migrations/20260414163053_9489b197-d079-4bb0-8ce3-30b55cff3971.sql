@@ -1,0 +1,1 @@
+ALTER TABLE public.engineers ADD COLUMN skills text[] NOT NULL DEFAULT '{}';

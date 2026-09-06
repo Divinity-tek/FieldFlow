@@ -1,0 +1,1 @@
+import{t as M,c as h}from"./en-US-U54ibaGp.js";function u(a,c,e){const r=M(a,e==null?void 0:e.in);if(isNaN(c))return h((e==null?void 0:e.in)||a,NaN);if(!c)return r;const f=r.getDate(),t=h((e==null?void 0:e.in)||a,r.getTime());t.setMonth(r.getMonth()+c+1,0);const n=t.getDate();return f>=n?t:(r.setFullYear(t.getFullYear(),t.getMonth(),f),r)}export{u as a};

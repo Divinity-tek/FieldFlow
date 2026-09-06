@@ -1,0 +1,1 @@
+import{g as d}from"./getRoundingMethod-C8-4UZLL.js";import{b as f}from"./en-US-U54ibaGp.js";import{a as t}from"./formatDistanceToNow-DrgylllG.js";function s(n,r,e){const i=t(n,r)/f;return d(e==null?void 0:e.roundingMethod)(i)}export{s as d};
