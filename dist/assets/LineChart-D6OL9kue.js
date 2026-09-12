@@ -1,0 +1,1 @@
+import{q as a,X as i,Y as s,o as r}from"./generateCategoricalChart-CTF35sYY.js";import{L as o}from"./Line-DeIleVDM.js";var t=a({chartName:"LineChart",GraphicalChild:o,axisComponents:[{axisType:"xAxis",AxisComp:i},{axisType:"yAxis",AxisComp:s}],formatAxisMap:r});export{t as L};
