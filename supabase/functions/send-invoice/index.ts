@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface SendInvoiceRequest {
   to: string;
+  from: string;
   clientName?: string;
   invoiceNumber: string;
   fileName: string;
@@ -47,6 +48,7 @@ Deno.serve(async (req) => {
 
     const {
       to,
+      from,
       clientName,
       invoiceNumber,
       fileName,
@@ -55,6 +57,10 @@ Deno.serve(async (req) => {
 
     if (!to) {
       throw new Error("Client email is required");
+    }
+
+    if (!from) {
+      throw new Error("Sender email is required");
     }
 
     if (!invoiceNumber) {
@@ -76,7 +82,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Invoices <accounts@tekcloudsoul.co.uk>",
+        from,
         to: [to],
         subject: `Invoice ${invoiceNumber}`,
         html: `

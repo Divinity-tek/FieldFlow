@@ -780,9 +780,16 @@ const Invoices = () => {
 
   const sendInvoice = async (inv: any) => {
     const clientEmail = inv.clients?.contact_email;
+    const partnerEmail = inv.partners?.email;
+    const partnerName = inv.partners?.company_name;
 
     if (!clientEmail) {
       toast.error("Client email is not available for this invoice.");
+      return;
+    }
+
+    if (!partnerEmail) {
+      toast.error("Partner email is not available for this invoice.");
       return;
     }
 
@@ -810,6 +817,9 @@ const Invoices = () => {
         {
           body: {
             to: clientEmail,
+            from: partnerName
+            ? `${partnerName} <${partnerEmail}>`
+            : partnerEmail,
             clientName: inv.clients?.company_name,
             invoiceNumber: inv.invoice_number,
             fileName: `Invoice_${inv.invoice_number}.pdf`,
