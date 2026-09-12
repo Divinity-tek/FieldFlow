@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +106,41 @@ const partnerSchema = z
       .url({ message: "Logo URL must be a valid URL" })
       .optional()
       .or(z.literal("")),
+    payment_account_name: z
+      .string()
+      .trim()
+      .max(200, {
+        message: "Account name must be 200 characters or less",
+      })
+      .optional()
+      .or(z.literal("")),
+
+    payment_iban: z
+      .string()
+      .trim()
+      .max(100, {
+        message: "IBAN must be 100 characters or less",
+      })
+      .optional()
+      .or(z.literal("")),
+
+    payment_swift_bic: z
+      .string()
+      .trim()
+      .max(50, {
+        message: "Swift/BIC must be 50 characters or less",
+      })
+      .optional()
+      .or(z.literal("")),
+
+    payment_bank_name_address: z
+      .string()
+      .trim()
+      .max(500, {
+        message: "Bank name and address must be 500 characters or less",
+      })
+      .optional()
+      .or(z.literal("")),
     is_active: z.boolean(),
   })
   .superRefine((data, ctx) => {
@@ -171,6 +207,10 @@ const emptyForm: PartnerForm = {
   billing_contact_email: "",
   billing_contact_phone: "",
   logo_url: "",
+  payment_account_name: "",
+  payment_iban: "",
+  payment_swift_bic: "",
+  payment_bank_name_address: "",
   is_active: true,
 };
 
@@ -190,6 +230,10 @@ interface PartnerRow {
   website: string | null;
   tax_number: string | null;
   logo_url: string | null;
+  payment_account_name: string | null;
+  payment_iban: string | null;
+  payment_swift_bic: string | null;
+  payment_bank_name_address: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -388,6 +432,12 @@ const Partners = () => {
         billing_contact_email: parsed.billing_contact_email || null,
         billing_contact_phone: parsed.billing_contact_phone || null,
         logo_url: parsed.logo_url || null,
+        payment_account_name: parsed.payment_account_name || null,
+        payment_iban: parsed.payment_iban || null,
+        payment_swift_bic: parsed.payment_swift_bic || null,
+        payment_bank_name_address:
+          parsed.payment_bank_name_address || null,
+
         is_active: parsed.is_active,
       };
 
@@ -471,6 +521,11 @@ const Partners = () => {
       billing_contact_email: (p as any).billing_contact_email ?? "",
       billing_contact_phone: (p as any).billing_contact_phone ?? "",
       logo_url: p.logo_url ?? "",
+      payment_account_name: p.payment_account_name ?? "",
+      payment_iban: p.payment_iban ?? "",
+      payment_swift_bic: p.payment_swift_bic ?? "",
+      payment_bank_name_address:
+        p.payment_bank_name_address ?? "",
       is_active: p.is_active ?? true,
     });
     setErrors({});
@@ -882,6 +937,133 @@ const Partners = () => {
                 className={errClass("billing_contact_phone")}
               />
               {errors.billing_contact_phone && <p className="text-xs text-destructive mt-1">{errors.billing_contact_phone}</p>}
+            </div>
+            <div className="sm:col-span-2 border-t pt-3 mt-1">
+              <h4 className="text-sm font-semibold mb-1">
+                Payment Details
+              </h4>
+
+              <p className="text-xs text-muted-foreground mb-3">
+                Bank details shown on invoices for this partner.
+              </p>
+            </div>
+
+            <div>
+              <Label
+                htmlFor="payment_account_name"
+                className={errLabel("payment_account_name")}
+              >
+                Account Name
+              </Label>
+
+              <Input
+                id="payment_account_name"
+                value={form.payment_account_name ?? ""}
+                maxLength={200}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    payment_account_name: e.target.value,
+                  })
+                }
+                aria-invalid={!!errors.payment_account_name}
+                className={errClass("payment_account_name")}
+              />
+
+              {errors.payment_account_name && (
+                <p className="text-xs text-destructive mt-1">
+                  {errors.payment_account_name}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label
+                htmlFor="payment_iban"
+                className={errLabel("payment_iban")}
+              >
+                IBAN
+              </Label>
+
+              <Input
+                id="payment_iban"
+                value={form.payment_iban ?? ""}
+                maxLength={100}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    payment_iban: e.target.value,
+                  })
+                }
+                aria-invalid={!!errors.payment_iban}
+                className={errClass("payment_iban")}
+              />
+
+              {errors.payment_iban && (
+                <p className="text-xs text-destructive mt-1">
+                  {errors.payment_iban}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label
+                htmlFor="payment_swift_bic"
+                className={errLabel("payment_swift_bic")}
+              >
+                Swift / BIC
+              </Label>
+
+              <Input
+                id="payment_swift_bic"
+                value={form.payment_swift_bic ?? ""}
+                maxLength={50}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    payment_swift_bic: e.target.value,
+                  })
+                }
+                aria-invalid={!!errors.payment_swift_bic}
+                className={errClass("payment_swift_bic")}
+              />
+
+              {errors.payment_swift_bic && (
+                <p className="text-xs text-destructive mt-1">
+                  {errors.payment_swift_bic}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label
+                htmlFor="payment_bank_name_address"
+                className={errLabel("payment_bank_name_address")}
+              >
+                Bank Name and Address
+              </Label>
+
+              <Textarea
+                id="payment_bank_name_address"
+                value={form.payment_bank_name_address ?? ""}
+                maxLength={500}
+                rows={3}
+                placeholder="Bank name, street, city, country"
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    payment_bank_name_address: e.target.value,
+                  })
+                }
+                aria-invalid={!!errors.payment_bank_name_address}
+                className={errClass("payment_bank_name_address")}
+              />
+
+              {errors.payment_bank_name_address && (
+                <p className="text-xs text-destructive mt-1">
+                  {errors.payment_bank_name_address}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="logo_url">Partner Logo</Label>

@@ -148,6 +148,7 @@ const Engineers = () => {
 
   // ── Inline "Add Engineer" form state ─────────────────────────────────────
   const [form, setForm] = useState({
+    employee_id: "",
     full_name: "",
     email: "",
     phone: "",
@@ -233,30 +234,99 @@ useEffect(() => {
   const { data: engineers = [], isLoading } = useQuery({
     queryKey: ["all-engineers"],
     queryFn: async () => {
-      const { data: engs } = await supabase.from("engineers").select("*");
-      if (!engs || engs.length === 0) return [];
-      const userIds = engs.map((e) => e.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles").select("user_id, full_name, phone").in("user_id", userIds);
-      const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
+      const { data: engs, error: engError } = await supabase
+        .from("engineers")
+        .select("*");
+
+      if (engError) {
+        console.error("Error fetching engineers:", engError);
+        throw engError;
+      }
+
+      if (!engs || engs.length === 0) {
+        return [];
+      }
+
+      // Get only valid user IDs from the engineers table
+      const userIds = engs
+        .map((e) => e.user_id)
+        .filter((id): id is string => Boolean(id));
+
+      // Engineer personal details come from profiles
+      const { data: profiles, error: profileError } = userIds.length
+        ? await supabase
+            .from("profiles")
+            .select("user_id, full_name, email, phone")
+            .in("user_id", userIds)
+        : { data: [], error: null };
+
+      if (profileError) {
+        console.error("Error fetching engineer profiles:", profileError);
+        throw profileError;
+      }
+
+      const profileMap = Object.fromEntries(
+        (profiles ?? []).map((p) => [p.user_id, p])
+      );
+
       return engs.map((e) => {
-        const p = e.user_id ? profileMap[e.user_id] : undefined;
-        // Prefer the engineer's own columns (set directly by the Add Engineer
-        // form / import) and fall back to the linked profile for engineers
-        // who signed up themselves.
-        const name = (e as any).full_name ?? p?.full_name ?? "Unknown";
+        const profile = e.user_id
+          ? profileMap[e.user_id]
+          : undefined;
+
+        // For existing engineers, name comes from profiles.
+        // For newly-created admin engineers, full_name may exist
+        // directly on engineers.
+        const name =
+          (e as any).full_name?.trim() ||
+          profile?.full_name?.trim() ||
+          "Unknown";
+
         return {
           ...e,
+
           name,
-          full_name: (e as any).full_name ?? p?.full_name ?? null,
-          phone: (e as any).phone ?? p?.phone ?? null,
-          avatar: name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2),
+
+          full_name:
+            (e as any).full_name?.trim() ||
+            profile?.full_name?.trim() ||
+            null,
+
+          email:
+            (e as any).email?.trim() ||
+            profile?.email?.trim() ||
+            null,
+
+          phone:
+            (e as any).phone?.trim() ||
+            profile?.phone?.trim() ||
+            null,
+
+          avatar: name
+            .split(" ")
+            .map((w: string) => w[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2),
+
           skills: (e as any).skills ?? [],
-          rate_type: (e as any).rate_type ?? "Hourly",
-          rate_amount: (e as any).rate_amount ?? (e as any).hourly_rate ?? null,
-          rates: (e as any).rates ?? [],
-          engineer_type: (e as any).engineer_type ?? "FreeLancer",
-          vendor_partner: (e as any).vendor_partner ?? null,
+
+          rate_type:
+            (e as any).rate_type ?? "Hourly",
+
+          rate_amount:
+            (e as any).rate_amount ??
+            (e as any).hourly_rate ??
+            null,
+
+          rates:
+            (e as any).rates ?? [],
+
+          engineer_type:
+            (e as any).engineer_type ?? "FreeLancer",
+
+          vendor_partner:
+            (e as any).vendor_partner ?? null,
         };
       });
     },
@@ -309,7 +379,7 @@ useEffect(() => {
 
   const resetForm = () => {
     setForm({
-      full_name: "", email: "", phone: "", residential_address: "",
+      employee_id: "", full_name: "", email: "", phone: "", residential_address: "",
       specialty: "", location: "", city: "", state: "", postcode: "", country: "",
       rates: [emptyRateRow()],
       vendor_partner: "FieldFlow (Internal)", availability: "Available",
@@ -406,6 +476,7 @@ useEffect(() => {
       // supabase/migrations/20260719190000_engineers_form_fields.sql) so this
       // insert writes straight to the DB — no localStorage involved.
       const newEngineerRow = {
+        employee_id: form.employee_id.trim() || null,
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -486,6 +557,7 @@ useEffect(() => {
         const rateType = row.RateType ?? "Hourly";
         const rateCurrency = row.RateCurrency ?? "USD";
         return {
+          employee_id: row.EmployeeID ?? row.employee_id ?? null,
           full_name: row.Name ?? row.full_name ?? "Unknown",
           email: row.Email ?? row.email ?? null,
           phone: row.Phone ? String(row.Phone) : null,
@@ -730,6 +802,15 @@ useEffect(() => {
                   <span className="font-semibold text-sm">Contact Information</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="ff-employee-id">Employee ID</Label>
+                    <Input
+                      id="ff-employee-id"
+                      placeholder="e.g. EMP-001"
+                      value={form.employee_id}
+                      onChange={(e) => setField("employee_id", e.target.value)}
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="ff-full-name">Full Name <span className="text-destructive">*</span></Label>
                     <Input id="ff-full-name" placeholder="e.g. Marcus Reed" value={form.full_name} onChange={(e) => setField("full_name", e.target.value)} required />
@@ -1178,7 +1259,7 @@ useEffect(() => {
 
                         {/* ID Type / ID */}
                         <td className="p-4 align-middle text-sm text-muted-foreground whitespace-nowrap font-mono">
-                          {eng.id_type ? `${eng.id_type} / ${eng.id}` : eng.id}
+                          {eng.employee_id || "—"}
                         </td>
 
                         {/* Contact */}
@@ -1400,7 +1481,7 @@ useEffect(() => {
 
       {/* ── Admin Detail Dialog ────────────────────────────────────────────── */}
       <Dialog open={!!detailEngineer} onOpenChange={(open) => !open && setDetailEngineer(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">{detailEngineer?.name} — Details</DialogTitle>
           </DialogHeader>

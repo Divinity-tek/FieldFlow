@@ -104,6 +104,7 @@ export interface DocBuildInput {
   currency?: string;
   issued_at?: string | Date | null;
   due_date?: string | Date | null;
+  purchase_order_number?: string | null;
   paid_at?: string | Date | null;
   // Money
   subtotal: number;
@@ -155,8 +156,13 @@ export interface DocBuildInput {
   linkedRef?: { kind: DocKind; number: string } | null;
   // Payment terms shown above the notes block
   payment_terms?: string | null;
-  // Optional QR payload — when provided, a QR code is rendered next to the totals
-  qr_payload?: string | null;
+  // Payment details shown on invoices
+  payment_details?: {
+    account_name?: string | null;
+    iban?: string | null;
+    swift_bic?: string | null;
+    bank_name_address?: string | null;
+  } | null;
 }
 
 const KIND_LABEL: Record<DocKind, string> = {
@@ -178,20 +184,6 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
   const issued = d.issued_at ? new Date(d.issued_at).toLocaleDateString() : "";
   const due = d.due_date ? new Date(d.due_date).toLocaleDateString() : "";
   const paid = d.paid_at ? new Date(d.paid_at).toLocaleDateString() : "";
-
-  let qrDataUrl = "";
-  let qrError = "";
-  if (d.qr_payload) {
-    try {
-      const QR: any = await import("qrcode");
-      const toDataURL = (QR.default ?? QR)?.toDataURL;
-      if (typeof toDataURL !== "function") throw new Error("QR library unavailable");
-      qrDataUrl = await toDataURL(d.qr_payload, { margin: 1, width: 160 });
-    } catch (e: any) {
-      qrError = e?.message || "QR generation failed";
-      console.warn("[financialDocs] QR generation failed:", e);
-    }
-  }
 
   const lineRows = (d.lineItems || [])
     .filter((li) => (li.description || "").trim())
@@ -289,6 +281,62 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
       </table>
     </div>` : "";
 
+  const bankDetails = d.payment_details;
+
+  const paymentDetailsBlock =
+    d.kind === "invoice" &&
+    bankDetails &&
+    (
+      bankDetails.account_name ||
+      bankDetails.iban ||
+      bankDetails.swift_bic ||
+      bankDetails.bank_name_address
+    )
+      ? `
+        <div class="block bank-details">
+          <div class="block-title">Payment Details</div>
+
+          <table class="mini">
+            ${
+              bankDetails.account_name
+                ? `<tr>
+                    <td>Account Name</td>
+                    <td class="right">${esc(bankDetails.account_name)}</td>
+                  </tr>`
+                : ""
+            }
+
+            ${
+              bankDetails.iban
+                ? `<tr>
+                    <td>IBAN</td>
+                    <td class="right">${esc(bankDetails.iban)}</td>
+                  </tr>`
+                : ""
+            }
+
+            ${
+              bankDetails.swift_bic
+                ? `<tr>
+                    <td>Swift / BIC</td>
+                    <td class="right">${esc(bankDetails.swift_bic)}</td>
+                  </tr>`
+                : ""
+            }
+
+            ${
+              bankDetails.bank_name_address
+                ? `<tr>
+                    <td>Bank Name and Address</td>
+                    <td class="right pre">${esc(bankDetails.bank_name_address)}</td>
+                  </tr>`
+                : ""
+            }
+          </table>
+        </div>
+      `
+      : "";
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>${docLabel} ${esc(d.number || "")}</title>
 <style>
@@ -328,8 +376,6 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
   table.lines tbody td.desc { white-space: normal; word-break: break-word; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; max-width: 0; }
   .tax-tags { font-size: 11px; color: #64748b; margin-top: 2px; }
   .totals-row { margin-top: 16px; display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; }
-  .qr { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-  .qr img { width: 110px; height: 110px; }
   .totals { display: flex; justify-content: flex-end; }
   table.totals-tbl { min-width: 280px; border-collapse: collapse; font-size: 13px; }
   table.totals-tbl td { padding: 6px 10px; }
@@ -350,12 +396,15 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
   .notes { margin-top: 18px; padding: 12px 14px; background: #f1f5f9; border-left: 3px solid ${accent}; border-radius: 4px; font-size: 12px; white-space: pre-wrap; }
   .signature { margin-top: 22px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
   .signature img { max-height: 80px; max-width: 240px; }
+  .bank-details .pre {
+    white-space: pre-wrap;
+  }
   .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 11px; text-align: center; }
   table.lines thead { display: table-header-group; }
   table.lines tfoot { display: table-footer-group; }
   table.lines tr { page-break-inside: avoid; break-inside: avoid; }
   table.lines tbody td { orphans: 3; widows: 3; }
-  .block, .notes, .signature, .totals-row, .party, .qr, table.totals-tbl, table.totals-tbl tr, table.totals-tbl tbody, .footer { page-break-inside: avoid; break-inside: avoid; }
+  .block, .notes, .signature, .totals-row, .party, table.totals-tbl, table.totals-tbl tr, table.totals-tbl tbody, .footer { page-break-inside: avoid; break-inside: avoid; }
   .header { page-break-after: avoid; break-after: avoid; }
   h1, h2, h3, .title, .block-title { page-break-after: avoid; break-after: avoid; }
   /* Keep totals + payment terms grouped with at least the previous content */
@@ -394,6 +443,7 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
     ${issued ? `<div><div class="label">Issued</div><div class="value">${esc(issued)}</div></div>` : ""}
     ${due ? `<div><div class="label">${d.kind === "estimate" ? "Valid Until" : "Due"}</div><div class="value">${esc(due)}</div></div>` : ""}
     ${paid && d.kind !== "receipt" ? `<div><div class="label">Paid</div><div class="value">${esc(paid)}</div></div>` : ""}
+    ${d.purchase_order_number ? `<div><div class="label">PO Number</div><div class="value">${esc(d.purchase_order_number)}</div></div>` : ""}
     ${d.title ? `<div><div class="label">Reference</div><div class="value">${esc(d.title)}</div></div>` : ""}
   </div>
 
@@ -412,19 +462,17 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
     <tbody>${lineRows}</tbody>
   </table>
   </div>` : ""}
+    <div class="totals-row">
+    <div></div>
 
-  <div class="totals-row">
-    ${qrDataUrl
-      ? `<div class="qr"><img src="${qrDataUrl}" alt="QR"/><div class="muted small">Scan to verify / pay</div></div>`
-      : qrError
-        ? `<div class="qr"><div class="muted small" style="color:#b91c1c">QR unavailable: ${esc(qrError)}</div></div>`
-        : `<div></div>`}
     <div class="totals">
       <table class="totals-tbl">${totalsRows.join("")}</table>
     </div>
   </div>
 
+  ${paymentDetailsBlock}
   ${paymentBlock}
+
   ${dispatchBlock}
   ${d.payment_terms ? `<div class="notes"><strong>Payment Terms</strong><br/>${esc(d.payment_terms)}</div>` : ""}
   ${d.notes ? `<div class="notes"><strong>Notes</strong><br/>${esc(d.notes)}</div>` : ""}
@@ -590,8 +638,7 @@ export async function buildDocHtml(d: DocBuildInput): Promise<string> {
   window.addEventListener('resize', run);
 })();
 </script>
-})();
-</script>
+
 </body></html>`;
 }
 

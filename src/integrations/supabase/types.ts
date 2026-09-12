@@ -2830,6 +2830,7 @@ export type Database = {
           documents_reviewed_at: string | null
           documents_reviewed_by: string | null
           email: string | null
+          employee_id: string | null
           engineer_type: string
           full_name: string | null
           hourly_rate: number | null
@@ -2899,6 +2900,7 @@ export type Database = {
           documents_reviewed_at?: string | null
           documents_reviewed_by?: string | null
           email?: string | null
+          employee_id?: string | null
           engineer_type?: string
           full_name?: string | null
           hourly_rate?: number | null
@@ -2968,6 +2970,7 @@ export type Database = {
           documents_reviewed_at?: string | null
           documents_reviewed_by?: string | null
           email?: string | null
+          employee_id?: string | null
           engineer_type?: string
           full_name?: string | null
           hourly_rate?: number | null
@@ -4205,6 +4208,7 @@ export type Database = {
           paid_at: string | null
           partner_id: string | null
           payment_method: string | null
+          purchase_order_number: string | null
           sent_at: string | null
           signature_data: string | null
           signed_at: string | null
@@ -4257,6 +4261,7 @@ export type Database = {
           paid_at?: string | null
           partner_id?: string | null
           payment_method?: string | null
+          purchase_order_number?: string | null
           sent_at?: string | null
           signature_data?: string | null
           signed_at?: string | null
@@ -4309,6 +4314,7 @@ export type Database = {
           paid_at?: string | null
           partner_id?: string | null
           payment_method?: string | null
+          purchase_order_number?: string | null
           sent_at?: string | null
           signature_data?: string | null
           signed_at?: string | null
@@ -5455,6 +5461,10 @@ export type Database = {
           id: string
           is_active: boolean
           logo_url: string | null
+          payment_account_name: string | null
+          payment_bank_name_address: string | null
+          payment_iban: string | null
+          payment_swift_bic: string | null
           phone: string | null
           postcode: string | null
           region: string | null
@@ -5478,6 +5488,10 @@ export type Database = {
           id?: string
           is_active?: boolean
           logo_url?: string | null
+          payment_account_name?: string | null
+          payment_bank_name_address?: string | null
+          payment_iban?: string | null
+          payment_swift_bic?: string | null
           phone?: string | null
           postcode?: string | null
           region?: string | null
@@ -5501,6 +5515,10 @@ export type Database = {
           id?: string
           is_active?: boolean
           logo_url?: string | null
+          payment_account_name?: string | null
+          payment_bank_name_address?: string | null
+          payment_iban?: string | null
+          payment_swift_bic?: string | null
           phone?: string | null
           postcode?: string | null
           region?: string | null

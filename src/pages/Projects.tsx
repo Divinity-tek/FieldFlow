@@ -179,7 +179,7 @@ const Projects = () => {
             <CardTitle>All projects</CardTitle>
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
               <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />New project</Button></DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                       {editingProject ? "Edit Project" : "Create Project"}

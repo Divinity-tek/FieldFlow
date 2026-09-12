@@ -38,6 +38,21 @@ const emptyLine = (): FinLineItem & { id: string } => ({
   tax2_rate: 0,
 });
 
+const calculateDueDate = (baseDate: string, days: number): string => {
+  if (!baseDate) return "";
+
+  const [year, month, day] = baseDate.split("-").map(Number);
+
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+
+  const resultYear = date.getFullYear();
+  const resultMonth = String(date.getMonth() + 1).padStart(2, "0");
+  const resultDay = String(date.getDate()).padStart(2, "0");
+
+  return `${resultYear}-${resultMonth}-${resultDay}`;
+};
+
 const CUSTOM_RATE = "__custom__";
 
 const RateSelect = ({
@@ -102,6 +117,9 @@ const Invoices = () => {
   const [title, setTitle] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [dueDate, setDueDate] = useState("");
+  const [dueDays, setDueDays] = useState("30");
+  const [purchaseOrderNumber, setPurchaseOrderNumber] = useState("");
+  const [invoiceBaseDate, setInvoiceBaseDate] = useState("");
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxMode, setTaxMode] = useState<TaxMode>("compound");
   const [tax1Label, setTax1Label] = useState("Tax");
@@ -143,7 +161,26 @@ const Invoices = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("*, clients(company_name, contact_email, contact_phone, address), partners(company_name, contact_name, email, phone, address_line1, city, region, postcode, country), estimates(estimate_number)")
+        .select(`
+          *,
+          clients(company_name, contact_email, contact_phone, address),
+          partners(
+            company_name,
+            contact_name,
+            email,
+            phone,
+            address_line1,
+            city,
+            region,
+            postcode,
+            country,
+            payment_account_name,
+            payment_iban,
+            payment_swift_bic,
+            payment_bank_name_address
+          ),
+          estimates(estimate_number)
+        `)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -388,7 +425,19 @@ const Invoices = () => {
   const resetForm = () => {
     setShowEditor(false);
     setEditingId(null);
-    setClientId(""); setPartnerId("none"); setTitle(""); setCurrency("USD"); setDueDate("");
+    setClientId(""); setPartnerId("none"); setTitle(""); setCurrency("USD");
+    const today = new Date();
+
+    const todayYear = today.getFullYear();
+    const todayMonth = String(today.getMonth() + 1).padStart(2, "0");
+    const todayDay = String(today.getDate()).padStart(2, "0");
+
+    const todayInput = `${todayYear}-${todayMonth}-${todayDay}`;
+
+    setInvoiceBaseDate(todayInput);
+    setDueDays("30");
+    setDueDate(calculateDueDate(todayInput, 30));
+    setPurchaseOrderNumber("");
     setTaxEnabled(true);
     setTaxMode("compound"); setTax1Label("Tax"); setTaxRate("0"); setTax2Label("Tax 2"); setTax2Rate("0"); setTaxPreset("none");
     setDiscountPercent("0"); setNotes(""); setLineItems([emptyLine()]);
@@ -401,7 +450,49 @@ const Invoices = () => {
     setPartnerId(inv.partner_id || "none");
     setTitle(inv.title || "");
     setCurrency(inv.currency || "USD");
-    setDueDate(inv.due_date || "");
+    setPurchaseOrderNumber(inv.purchase_order_number || "");
+
+    const invoiceDate = inv.created_at
+      ? new Date(inv.created_at)
+      : new Date();
+
+    const invoiceDateOnly = new Date(
+      invoiceDate.getFullYear(),
+      invoiceDate.getMonth(),
+      invoiceDate.getDate()
+    );
+
+    const invoiceDateInput = [
+      invoiceDateOnly.getFullYear(),
+      String(invoiceDateOnly.getMonth() + 1).padStart(2, "0"),
+      String(invoiceDateOnly.getDate()).padStart(2, "0"),
+    ].join("-");
+
+    setInvoiceBaseDate(invoiceDateInput);
+
+    if (inv.due_date) {
+      const [year, month, day] = inv.due_date.split("-").map(Number);
+
+      const dueDateValue = new Date(year, month - 1, day);
+
+      const differenceInDays = Math.round(
+        (dueDateValue.getTime() - invoiceDateOnly.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      const standardTerms = ["0", "7", "10", "15", "30", "45", "60"];
+
+      if (standardTerms.includes(String(differenceInDays))) {
+        setDueDays(String(differenceInDays));
+      } else {
+        setDueDays("custom");
+      }
+
+      setDueDate(inv.due_date);
+    } else {
+      setDueDays("0");
+      setDueDate("");
+    }
     setTaxMode((inv.tax_mode || "compound") as TaxMode);
     setTax1Label(inv.tax1_label || "Tax");
     setTaxRate(String(inv.tax_rate ?? 0));
@@ -444,6 +535,7 @@ const Invoices = () => {
         title: title.trim() || null,
         currency,
         due_date: dueDate || null,
+        purchase_order_number: purchaseOrderNumber.trim() || null,
         subtotal: totals.subtotal,
         discount_percent: Number(discountPercent) || 0,
         discount_amount: totals.discount_amount,
@@ -785,6 +877,7 @@ const Invoices = () => {
       currency: inv.currency || "USD",
       issued_at: inv.created_at,
       due_date: inv.due_date,
+      purchase_order_number: inv.purchase_order_number,
       paid_at: inv.paid_at,
       subtotal: Number(inv.subtotal),
       discount_percent: Number(inv.discount_percent || 0),
@@ -839,14 +932,14 @@ const Invoices = () => {
       payment_terms: inv.due_date
         ? `Payment due by ${new Date(inv.due_date).toLocaleDateString()}. Late payments may incur interest as per agreement.`
         : "Payment due upon receipt.",
-      qr_payload: JSON.stringify({
-        type: "invoice",
-        number: inv.invoice_number,
-        total: Number(inv.total),
-        currency: inv.currency || "USD",
-        balance: Number(inv.balance_due ?? (inv.total - (inv.amount_paid || 0))),
-        due: inv.due_date || null,
-      }),
+      payment_details: inv.partners
+        ? {
+            account_name: inv.partners.payment_account_name || null,
+            iban: inv.partners.payment_iban || null,
+            swift_bic: inv.partners.payment_swift_bic || null,
+            bank_name_address: inv.partners.payment_bank_name_address || null,
+          }
+        : null,
     };
   };
 
@@ -1089,6 +1182,14 @@ const Invoices = () => {
                   <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Project Alpha — Aug 2025" />
                 </div>
                 <div className="space-y-1">
+                  <Label>Purchase Order Number</Label>
+                  <Input
+                    value={purchaseOrderNumber}
+                    onChange={(e) => setPurchaseOrderNumber(e.target.value)}
+                    placeholder="e.g. PO-2026-00125"
+                  />
+                </div>
+                <div className="space-y-1">
                   <Label>Currency</Label>
                   <Select value={currency} onValueChange={setCurrency}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1099,9 +1200,81 @@ const Invoices = () => {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <Label>Due Date</Label>
-                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="max-w-xs" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Payment Terms</Label>
+
+                  <Select
+                    value={dueDays}
+                    onValueChange={(value) => {
+                        setDueDays(value);
+
+                        if (value === "custom") {
+                          return;
+                        }
+
+                        setDueDate(
+                          calculateDueDate(invoiceBaseDate, Number(value))
+                        );
+                      }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment terms" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="0">
+                        Due on receipt
+                      </SelectItem>
+
+                      <SelectItem value="7">
+                        7 days
+                      </SelectItem>
+
+                      <SelectItem value="10">
+                        10 days
+                      </SelectItem>
+
+                      <SelectItem value="15">
+                        15 days
+                      </SelectItem>
+
+                      <SelectItem value="30">
+                        30 days
+                      </SelectItem>
+
+                      <SelectItem value="45">
+                        45 days
+                      </SelectItem>
+
+                      <SelectItem value="60">
+                        60 days
+                      </SelectItem>
+
+                      <SelectItem value="custom">
+                        Custom date
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Due Date</Label>
+
+                  {dueDays === "custom" ? (
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                    />
+                  ) : (
+                    <div className="h-10 flex items-center rounded-md border bg-muted/40 px-3 text-sm font-medium">
+                      {dueDate
+                        ? new Date(`${dueDate}T00:00:00`).toLocaleDateString()
+                        : "—"}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Line items */}

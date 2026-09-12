@@ -95,17 +95,37 @@ const Jobs = () => {
   const { data: engineers = [] } = useQuery({
     queryKey: ["admin-jobs-engineers"],
     queryFn: async () => {
-      const { data: engs } = await supabase.from("engineers").select("id, user_id");
+      const { data: engs } = await supabase
+        .from("engineers")
+        .select("id, user_id, employee_id, full_name");
+
       if (!engs?.length) return [];
-      const uids = engs.map(e => e.user_id);
-      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", uids);
-      const pm = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p.full_name]));
-      return engs.map(e => ({ id: e.id, name: pm[e.user_id] ?? "Unknown" }));
+
+      const uids = engs
+        .map(e => e.user_id)
+        .filter(Boolean);
+
+      const { data: profiles } = uids.length
+        ? await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", uids)
+        : { data: [] };
+
+      const pm = Object.fromEntries(
+        (profiles ?? []).map(p => [p.user_id, p.full_name])
+      );
+
+      return engs.map(e => ({
+        id: e.id,
+        employee_id: e.employee_id,
+        name: e.full_name ?? pm[e.user_id] ?? "Unknown",
+      }));
     },
   });
 
   const clientMap = useMemo(() => new Map(clients.map(c => [c.id, c.company_name])), [clients]);
-  const engineerMap = useMemo(() => new Map(engineers.map(e => [e.id, e.name])), [engineers]);
+  
 
   const filtered = useMemo(() => {
     return jobs.filter(job => {
@@ -114,7 +134,11 @@ const Jobs = () => {
         job.title.toLowerCase().includes(q) ||
         job.service_type.toLowerCase().includes(q) ||
         job.location.toLowerCase().includes(q) ||
-        (clientMap.get(job.client_id) ?? "").toLowerCase().includes(q);
+        (clientMap.get(job.client_id) ?? "").toLowerCase().includes(q) ||
+        (engineerMap.get(job.engineer_id) ?? "").toLowerCase().includes(q) ||
+        (engineers.find(e => e.id === job.engineer_id)?.employee_id ?? "")
+          .toLowerCase()
+          .includes(q);
       const matchesRegion = selectedRegion === "all" || job.region_id === selectedRegion;
       const matchesStatus = statusFilter === "all" || job.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || job.priority === priorityFilter;
@@ -388,10 +412,33 @@ const Jobs = () => {
     );
   };
 
+  // const engineerLabel = (engineer: {
+  //   employee_id?: string | null;
+  //   name: string;
+  // }) =>
+  //   engineer.employee_id
+  //     ? `${engineer.employee_id} — ${engineer.name}`
+  //     : engineer.name;
+
+  const engineerMap = useMemo(
+    () => new Map(engineers.map(e => [e.id, e.name])),
+    [engineers]
+  );
+
+  const engineerLabel = (e: { employee_id?: string | null; name: string }) =>
+  e.employee_id ? `${e.employee_id} — ${e.name}` : e.name;
+
   const renderEngineerSelectCell = (job: any) => {
     const currentId = job.engineer_id ?? "";
-    const currentName = currentId ? (engineerMap.get(currentId) ?? "Unknown") : null;
+    const currentEngineer = currentId
+      ? engineers.find(e => e.id === currentId)
+      : null;
+
+    const currentName = currentEngineer
+      ? engineerLabel(currentEngineer)
+      : null;
     const isOpen = openEngineerPickerId === job.id;
+    
 
     return (
       <Popover open={isOpen} onOpenChange={(open) => setOpenEngineerPickerId(open ? job.id : null)}>
@@ -423,15 +470,19 @@ const Jobs = () => {
                 {engineers.map((e) => (
                   <CommandItem
                     key={e.id}
-                    value={e.name}
+                    value={engineerLabel(e)}
                     onSelect={() => {
                       handleSelectChange(job.id, "engineer_id", e.id);
                       setOpenEngineerPickerId(null);
                     }}
                     className="text-xs"
                   >
-                    <Check className={`mr-2 h-3.5 w-3.5 ${currentId === e.id ? "opacity-100" : "opacity-0"}`} />
-                    {e.name}
+                    <Check
+                      className={`mr-2 h-3.5 w-3.5 ${
+                        currentId === e.id ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                    {engineerLabel(e)}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -526,7 +577,7 @@ const Jobs = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search by title, client, engineer, or location…"
+                placeholder="Search by title, client, engineer, employee ID, or location…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9 pr-4 py-2 rounded-lg border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 w-full sm:w-72"
@@ -755,7 +806,7 @@ const Jobs = () => {
 
       {/* New Job Dialog */}
       <Dialog open={showNewJob} onOpenChange={(o) => { if (!o) { setShowNewJob(false); setNewJobErrors({}); } }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Dispatch Ticket</DialogTitle>
             <DialogDescription>Fill in the required fields to create a new dispatch ticket.</DialogDescription>
@@ -847,7 +898,12 @@ const Jobs = () => {
                 aria-expanded={reassignPickerOpen}
                 className="w-full justify-between font-normal"
               >
-                {reassignEngineerId ? (engineerMap.get(reassignEngineerId) ?? "Unknown") : "Select engineer..."}
+                {reassignEngineerId
+                  ? (() => {
+                      const engineer = engineers.find(e => e.id === reassignEngineerId);
+                      return engineer ? engineerLabel(engineer) : "Unknown";
+                    })()
+                  : "Select engineer..."}
                 <ChevronsUpDown className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
               </Button>
             </PopoverTrigger>
@@ -860,15 +916,19 @@ const Jobs = () => {
                     {engineers.map((e) => (
                       <CommandItem
                         key={e.id}
-                        value={e.name}
+                        value={engineerLabel(e)}
                         onSelect={() => {
                           setReassignEngineerId(e.id);
                           setReassignPickerOpen(false);
                         }}
                         className="text-sm"
                       >
-                        <Check className={`mr-2 h-4 w-4 ${reassignEngineerId === e.id ? "opacity-100" : "opacity-0"}`} />
-                        {e.name}
+                        <Check
+                          className={`mr-2 h-4 w-4 ${
+                            reassignEngineerId === e.id ? "opacity-100" : "opacity-0"
+                          }`}
+                        />
+                        {engineerLabel(e)}
                       </CommandItem>
                     ))}
                   </CommandGroup>
